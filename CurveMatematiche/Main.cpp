@@ -8,13 +8,15 @@
 #include <gl/glui.h>
 #include <vector>
 #include <iostream>
+#include <tchar.h>
 
 #pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 
-int larghezza = 800, altezza = 800, PuntoSelezionato = -1;
+int larghezzaPrincipale = 800, altezzaPrincipale = 800, PuntoSelezionato = -1;
+int larghezzaSecondaria = 400, altezzaSecondaria = 300;
 
 //definiamo la nostra interfaccia
-int winId, winFBase, scelta_opzioni = 0, mod_molt = 0, i_nodo, molte;
+int winIdPrincipale, winIdFunzioniBase, scelta_opzioni = 0, mod_molt = 0, i_nodo, molte;
 int m = 4; //Ordine spline
 GLUI_Panel *pannello_opzioni;
 GLUI_RadioGroup *radio_opzioni;
@@ -61,18 +63,16 @@ vector <GLPOINT2D> DerivateMod;
 
 void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 	
-	int i, TOLL = 3;
+	int TOLL = 3;
 	float distanza, distanza1;
 
 	GLPOINT2D newPoint, zero;
 	zero.x = 0.0;
 	zero.y = 0.0;
 	newPoint.x = xmouse;
-	newPoint.y = altezza - ymouse;
+	newPoint.y = altezzaPrincipale - ymouse;
 
-	//se il bottone è premuto
-	if (state == GLUT_DOWN){
-		//che bottone è premuto?
+	if (state == GLUT_DOWN){ //se lo stato del bottone è premuto
 		switch(button){
 
 		case GLUT_LEFT_BUTTON:
@@ -94,7 +94,7 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 					//e prendo l'indice del punto più vicino
 					distanza = sqrt((Punti.at(0).x - newPoint.x)*(Punti.at(0).x - newPoint.x) + (Punti.at(0).y - newPoint.y)*(Punti.at(0).y - newPoint.y));
 
-					for (i=1; i<Punti.size(); i++){
+					for (int i=1; i<Punti.size(); i++){
 						distanza1 = sqrt((Punti.at(i).x - newPoint.x)*(Punti.at(i).x - newPoint.x) + (Punti.at(i).y - newPoint.y)*(Punti.at(i).y - newPoint.y));
 
 						//faccio il controllo sui minimi delle distanze
@@ -147,7 +147,7 @@ void mouseMove(GLint xmouse, GLint ymouse){
 
 	GLPOINT2D newPoint;
 	newPoint.x = xmouse;
-	newPoint.y = altezza - ymouse;
+	newPoint.y = altezzaPrincipale - ymouse;
 
 	if(PuntoSelezionato >= 0){
 		if(scelta_opzioni == 1){
@@ -179,15 +179,14 @@ void parametrizzazione_uniforme(float* t){
 
 void parametrizzazione_corde(float* t){
 
-	int i;
 	t[0] = 0;
 
-	for (i = 1; i<Punti.size(); i++){
+	for (int i = 1; i<Punti.size(); i++){
 		t[i] = t[i-1] + sqrt((Punti.at(i).x - Punti.at(i-1).x)*(Punti.at(i).x - Punti.at(i-1).x) + (Punti.at(i).y - Punti.at(i-1).y)*(Punti.at(i).y - Punti.at(i-1).y));
 	}
 
 	//divido per il massimo dell'ultimo componente per riportarlo nel range 0-1
-	for (i = 0; i<Punti.size(); i++){
+	for (int i = 0; i<Punti.size(); i++){
 		t[i] = t[i]/t[Punti.size()-1];
 	}
 
@@ -347,7 +346,7 @@ void Bezier(){
 	delete(c);
 }
 
-void DisegnaBezier(){
+void disegnaBezier(){
 
 	int campioni = 200;
 	float ti = 0, dt = 1.0/(campioni - 1);
@@ -382,7 +381,7 @@ void DisegnaBezier(){
 	}
 }
 
-void Costruisci_Nodi(float *t, float *Nodi, char* molt)
+void costruisci_Nodi(float *t, float *Nodi, char* molt)
 {
 	int i, cont;
 	int k = Punti.size() - m; //Numero di Nodi interni all'intervallo
@@ -452,7 +451,7 @@ int localizza_intervallo_internodale(float t, float *Nodi)
 	return a;
 }
 
-void DisegnaBaseSpline(float *Nodi, char *molt)
+void disegnaBaseSpline(float *Nodi, char *molt)
 {
 	int Ncampioni = 200;
 	float ti = 0;
@@ -558,27 +557,25 @@ void scelta_metodi(int scelta){
 
 void display(){
 
-	int i;
-	glutSetWindow(winId);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glutSetWindow(winIdFunzioniBase);
+	glClear(GL_COLOR_BUFFER_BIT); //pulisco la finestra secondaria (delle funzioni base)
 
+	glutSetWindow(winIdPrincipale);
+	glClear(GL_COLOR_BUFFER_BIT);
 	//Definisco il sistema di riferimento per la finestra principale di disegno delle curve
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluOrtho2D(0, larghezza, 0, altezza);
+	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
 
-	//glClearColor(1.0,1.0,0.0,0);
-	glClearColor(1.0, 1.0, 1.0, 0.0);
-	glPointSize(6.0);
-	glColor3f(0.0, 0.0, 0.0);
+	glColor3f(0.0, 0.0, 0.0); //disegno i punti della
 	glBegin(GL_POINTS);
-	for (i = 0; i < Punti.size(); i++)
+	for (int i = 0; i < Punti.size(); i++)
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
 	
 	glColor3f(1.0,0.0,0.0);
 	glBegin(GL_LINE_STRIP);
-	for (i = 0; i < Punti.size(); i++)
+	for (int i = 0; i < Punti.size(); i++)
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
 	glFlush();
@@ -625,32 +622,29 @@ void display(){
 		} else if (metodo == 2){
 			
 			Bezier();
-			if(alg_subd == 1)
+			if(alg_subd == 1){
 				Subdivision();
-			glutSetWindow(winFBase);
-			glClear(GL_COLOR_BUFFER_BIT);
+			}
+			glutSetWindow(winIdFunzioniBase);
 			glColor3f(1.0, 0.0, 0.0);
 			glMatrixMode(GL_PROJECTION);
 			glLoadIdentity();
-			gluOrtho2D(0, 1, -0.8, 1.0);
 
-			DisegnaBezier();
+			disegnaBezier();
 			glMatrixMode(GL_MODELVIEW);
+
 		} else if (metodo == 3) {
 			if (Punti.size() >= m) {
 				float *Nodi = new float[Punti.size() + 2 * m];
 				char *molt = new char[Punti.size() + m];
-				Costruisci_Nodi(t, Nodi, molt);
+				costruisci_Nodi(t, Nodi, molt);
 				DeBoor(t, Nodi);
 
-				glutSetWindow(winFBase);
-				glClear(GL_COLOR_BUFFER_BIT);
+				glutSetWindow(winIdFunzioniBase);
 				glColor3f(1.0, 0.0, 0.0);
 				glMatrixMode(GL_PROJECTION);
 				glLoadIdentity();
-				gluOrtho2D(-0.2, 1.1, -0.8, 1.1);
-				DisegnaBaseSpline(Nodi, molt);
-				glMatrixMode(GL_MODELVIEW);
+				disegnaBaseSpline(Nodi, molt);
 			}
 		}
 	}
@@ -660,31 +654,20 @@ void display(){
 
 void myinit (void)
 {
-	glClearColor(1.0, 1.0, 1.0, 0.0); //colore dello sfondo
+	glutSetWindow(winIdFunzioniBase);
+	glClearColor(1.0, 1.0, 1.0, 0.0); //colore dello sfondo finestra secondaria
+	gluOrtho2D(-0.05, 1.05, -0.05, 1.05);
+	glutSetWindow(winIdPrincipale);
+	glClearColor(1.0, 1.0, 1.0, 0.0); //colore dello sfondo finestra principale
 	glPointSize(6.0);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluOrtho2D(0.0,float(larghezza),0.0,float(altezza));
+	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
 }
 
-void main(int argc, char** argv)
-{
-	glutInit(&argc,argv);
-	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
-	glutInitWindowSize(larghezza,altezza);
-	glutInitWindowPosition(300,150);
-	winId = glutCreateWindow("Curve 2D");
-	
-	glutDisplayFunc(display);
-	glutMouseFunc(myMouse);
-	glutMotionFunc(mouseMove);
+void createGlui(){
 
-	glutInitWindowSize(100,300);
-	glutInitWindowPosition(1,1);
-	winFBase = glutCreateWindow("Funzioni Base");
-	glutDisplayFunc(display);
-
-	GLUI *glui = GLUI_Master.create_glui("Opzioni", GLUI_SUBWINDOW_TOP, 0, 150);
+	GLUI *glui = GLUI_Master.create_glui("Opzioni", GLUI_SUBWINDOW_TOP, 30 + larghezzaPrincipale, 80 + altezzaSecondaria);
 	pannello_opzioni = glui->add_panel("Opzioni", GLUI_PANEL_EMBOSSED);
 	radio_opzioni = glui->add_radiogroup_to_panel(pannello_opzioni, &scelta_opzioni);
 	glui->add_radiobutton_to_group(radio_opzioni, "Aggiunta punti");
@@ -713,17 +696,63 @@ void main(int argc, char** argv)
 
 	//valore del parametro t per la quale valutare la subdivision
 	spinner_subd = glui->add_spinner_to_panel(pannello_Bezier, "Parametro t per Subdivision", GLUI_SPINNER_FLOAT, &t_subd);
+	spinner_subd -> set_speed(0.3);
 
 	pannello_Spline = glui->add_panel("Spline", GLUI_PANEL_EMBOSSED);
 	buttonSpline = glui->add_button_to_panel(pannello_Spline,"SPLINE",3,scelta_metodi);
 	glui->add_checkbox_to_panel(pannello_Spline,"Modifica Molt",&mod_molt);
 	spinner_i_nodo = glui -> add_spinner_to_panel(pannello_Spline, "Nodo da modificare", GLUI_SPINNER_INT, &i_nodo);
+	spinner_i_nodo -> set_speed(0.1);
 	spinner_molte = glui -> add_spinner_to_panel(pannello_Spline, "Molteplicita'", GLUI_SPINNER_INT, &molte);
+	spinner_molte -> set_speed(0.1);
 
+	glui->set_main_gfx_window(winIdPrincipale);
+}
 
-	glui->set_main_gfx_window(winId);
+void reshape(GLsizei width, GLsizei height){
+	//metodo per non fare modificare la grandezza della finestra principale
+	if(width != larghezzaPrincipale || height != altezzaPrincipale)
+	{
+		glutReshapeWindow(larghezzaPrincipale, altezzaPrincipale);
+	}
+}
+
+void main(int argc, char** argv)
+{
+	glutInit(&argc,argv);
+	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+	glutInitWindowSize(larghezzaPrincipale,altezzaPrincipale);
+	glutInitWindowPosition(1,1);
+	winIdPrincipale = glutCreateWindow("Curve Matematiche 2D");
+
+	//per impostare l'icona nella finestra principale
+	HWND hwnd = FindWindow(NULL, _T("Curve Matematiche 2D") );
+	HANDLE icon = LoadImage(GetModuleHandle(NULL), _T("Icon.ico"), IMAGE_ICON, 64, 64, LR_LOADFROMFILE | LR_COLOR);
+	SendMessage(hwnd, (UINT)WM_SETICON, ICON_BIG, (LPARAM)icon);
+	
+	glutDisplayFunc(display);
+	glutMouseFunc(myMouse);
+	glutMotionFunc(mouseMove);
+	glutReshapeFunc(reshape); //per fare in modo che la finstra principale non venga resizeta
+
+	glutInitWindowSize(larghezzaSecondaria,altezzaSecondaria);
+	glutInitWindowPosition(30 + larghezzaPrincipale,1);
+	winIdFunzioniBase = glutCreateWindow("Funzioni Base");
+	glutDisplayFunc(display);
 
 	myinit();
+
+	//per impostare l'icona nella finestra delle funzioni base
+	hwnd = FindWindow(NULL, _T("Funzioni Base") );
+	SendMessage(hwnd, (UINT)WM_SETICON, ICON_BIG, (LPARAM)icon);
+
+	createGlui();
+	//per impostare l'icona nella finestra delle opzioni
+	hwnd = FindWindow(NULL, _T("Opzioni") );
+	SendMessage(hwnd, (UINT)WM_SETICON, ICON_BIG, (LPARAM)icon);
+
+
+	
 
 	glutMainLoop();
 }
