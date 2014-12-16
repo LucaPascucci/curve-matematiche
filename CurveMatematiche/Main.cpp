@@ -10,14 +10,31 @@
 #include <iostream>
 #include <tchar.h>
 
-#pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
+//nasconde la console
+//#pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 
-int larghezzaPrincipale = 800, altezzaPrincipale = 800, PuntoSelezionato = -1;
+//definizione funzioni base di Hermite
+#define PHI0(t) (2.0*t*t*t - 3.0*t*t + 1)
+#define PHI1(t) (t*t*t - 2.0*t*t + t)
+#define PSI0(t) (-2.0*t*t*t + 3.0*t*t)
+#define PSI1(t) (t*t*t - t*t)
+
+#define PESOBASE 1
+
+int larghezzaPrincipale = 800, altezzaPrincipale = 800;
 int larghezzaSecondaria = 400, altezzaSecondaria = 300;
+int PuntoSelezionato = -1; 
 
-//definiamo la nostra interfaccia
-int winIdPrincipale, winIdFunzioniBase, scelta_opzioni = 0, mod_molt = 0, i_nodo, molte;
-int m = 4; //Ordine spline
+int winIdPrincipale, winIdFunzioniBase; //ID Finestre
+
+int metodo = 0; //1: Hermite; 2: Bezier; 3: curve Spline
+int mod_der = 0; //0: Non modifica derivate, 1: Modifica derivate
+int scelta_opzioni = 0, mod_molt = 0, indice_nodo, molte;
+int ordineSpline = 4; //Ordine spline
+
+float t_subd;
+int alg_subd = 0; //1: viene applicato l'algoritmo subdivision
+
 GLUI_Panel *pannello_opzioni;
 GLUI_RadioGroup *radio_opzioni;
 
@@ -38,16 +55,11 @@ GLUI_Button *buttonBezier;
 GLUI_Panel *pannello_Spline;
 GLUI_Button *buttonSpline;
 
-float t_subd;
-int alg_subd = 0; //1: viene applicato l'algoritmo subdivision
+//spinner subdivision
+GLUI_Spinner *spinner_subd;
 
-GLUI_Spinner *spinner_subd, *spinner_i_nodo, *spinner_molte;
-
-//scelta dei metodi
-int metodo = 0; //1: Hermite; 2: Bezier; 3: curve Spline
-
-//modifica derivate
-int mod_der = 0;
+//spinner molteplicità
+GLUI_Spinner *spinner_i_nodo, *spinner_molte;
 
 using namespace std;
 
@@ -58,12 +70,18 @@ typedef struct glPoint2D{
 //contenitore di dati
 vector <GLPOINT2D> Punti;
 
+//contenitore dei pesi dei punti
+vector <int> PesiPunti;
+
 //conserva le coordinate dei punti dove è stata modificata la derivata
 vector <GLPOINT2D> DerivateMod;
 
+//Punti preparati
+vector <GLPOINT2D> PuntiPrepatati;
+
 void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 	
-	int TOLL = 3;
+	int tolleranzaDistanzaClick = 3;
 	float distanza, distanza1;
 
 	GLPOINT2D newPoint, zero;
@@ -71,6 +89,8 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 	zero.y = 0.0;
 	newPoint.x = xmouse;
 	newPoint.y = altezzaPrincipale - ymouse;
+	cout <<"x:"<< newPoint.x << " y:" << newPoint.y << endl;
+	cout <<"Dimensione vettore punti: " << Punti.size() << endl;
 
 	if (state == GLUT_DOWN){ //se lo stato del bottone è premuto
 		switch(button){
@@ -90,47 +110,56 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 				if(Punti.size() > 0){
 					PuntoSelezionato = 0;
 
-					//calcoliamo la distanza dal newpoint da tutti i punti inseriti prima
-					//e prendo l'indice del punto più vicino
+					//calcoliamo la distanza dal newpoint da tutti i punti inseriti prima e prendo l'indice del punto più vicino
 					distanza = sqrt((Punti.at(0).x - newPoint.x)*(Punti.at(0).x - newPoint.x) + (Punti.at(0).y - newPoint.y)*(Punti.at(0).y - newPoint.y));
 
 					for (int i=1; i<Punti.size(); i++){
 						distanza1 = sqrt((Punti.at(i).x - newPoint.x)*(Punti.at(i).x - newPoint.x) + (Punti.at(i).y - newPoint.y)*(Punti.at(i).y - newPoint.y));
 
 						//faccio il controllo sui minimi delle distanze
-						if (distanza1<distanza){
+						if (distanza1 < distanza){
 							PuntoSelezionato = i;
 							distanza = distanza1;
 						}
 					}
 
 					//confronto ora col mio indice di tolleranza
-					if(distanza > TOLL){
+					if(distanza > tolleranzaDistanzaClick){
 						PuntoSelezionato = -1;
 					}
 				}
 			} else if (scelta_opzioni == 0){
-				glBegin(GL_POINTS);
-				glVertex2f(newPoint.x, newPoint.y);
-				glEnd();
+				//scelta_opzioni = 0 --> modalita' inserimento
+				//disegna il punto 
+				//glBegin(GL_POINTS);
+				//glVertex2f(newPoint.x, newPoint.y);
+				//glEnd();
 
-				glFlush();
-
+				//glFlush();
+				
+				//inserisce il punto ed i dati relativi a quel punto
 				Punti.push_back(newPoint);
-
+				PesiPunti.push_back(PESOBASE);
 				DerivateMod.push_back(zero);
 			}
 			break;
 
+			//tasto destro mouse elimino tutti i punti inseriti
 		case GLUT_RIGHT_BUTTON:
 			Punti.clear();
+			PesiPunti.clear();
+			DerivateMod.clear();
 			break;
 
+			//Tasto centrale del mouse elimino l'ultimo punti inserito
 		case GLUT_MIDDLE_BUTTON:
 			Punti.pop_back();
+			PesiPunti.pop_back();
+			DerivateMod.pop_back();
 			break;
 		}
 	} else {
+		//lo stato del bottone non è premuto 
 		switch(button){
 		case GLUT_LEFT_BUTTON:
 			PuntoSelezionato = -1;
@@ -138,11 +167,10 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 		}
 
 	}
-
-	//forza il ridisegno
 	glutPostRedisplay();
 }
 
+//utilizzato per spostare un punto oppure per modificare la sua derivata
 void mouseMove(GLint xmouse, GLint ymouse){
 
 	GLPOINT2D newPoint;
@@ -151,6 +179,7 @@ void mouseMove(GLint xmouse, GLint ymouse){
 
 	if(PuntoSelezionato >= 0){
 		if(scelta_opzioni == 1){
+			//sostituisco il punto selezionato con quello nuovo
 			Punti.at(PuntoSelezionato) = newPoint;
 		} else if (mod_der == 1){
 			//la moltiplicazione per 5 è una regola
@@ -171,7 +200,7 @@ void parametrizzazione_uniforme(float* t){
 	//per il numero di punti presenti (l'ampiezza dell'intervallo è sempre 1)
 	float step = 1.0/(float)(Punti.size()-1);
 
-	for (int i = 0; i<Punti.size(); i++){
+	for (int i = 0; i < Punti.size(); i++){
 		t[i] = i*step;
 	}
 
@@ -192,15 +221,7 @@ void parametrizzazione_corde(float* t){
 
 }
 
-//definizione funzioni base di Hermite
-#define PHI0(t) (2.0*t*t*t - 3.0*t*t + 1)
-#define PHI1(t) (t*t*t - 2.0*t*t + t)
-
-#define PSI0(t) (-2.0*t*t*t + 3.0*t*t)
-#define PSI1(t) (t*t*t - t*t)
-
 //derivate rispetto a t della componente parametrica in x
-
 //metodo del rapporto incrementale
 float dx(int i, float* t){
 	if (i <= 0)
@@ -211,7 +232,6 @@ float dx(int i, float* t){
 }
 
 //derivate rispetto a t della componente parametrica in y
-
 //metodo del rapporto incrementale
 float dy(int i, float* t){
 	if (i <= 0)
@@ -384,10 +404,10 @@ void disegnaBezier(){
 void costruisci_Nodi(float *t, float *Nodi, char* molt)
 {
 	int i, cont;
-	int k = Punti.size() - m; //Numero di Nodi interni all'intervallo
+	int k = Punti.size() - ordineSpline; //Numero di Nodi interni all'intervallo
 
 	//Nodi fittizi a sinistra
-	for (i = 0; i < m; i++)
+	for (i = 0; i < ordineSpline; i++)
 	{
 		Nodi[i] = 0;
 		molt[i] = '4';
@@ -395,7 +415,7 @@ void costruisci_Nodi(float *t, float *Nodi, char* molt)
 
 	//Costruzione nodi veri
 	cont = 2;
-	for (i = m; i < m + k; i++)
+	for (i = ordineSpline; i < ordineSpline + k; i++)
 	{
 		Nodi[i] = t[cont];
 		molt[i] = '1';
@@ -403,7 +423,7 @@ void costruisci_Nodi(float *t, float *Nodi, char* molt)
 	}
 
 	//Nodi fittizi a destra
-	for (i = m + k; i < 2 * m + k; i++)
+	for (i = ordineSpline + k; i < 2 * ordineSpline + k; i++)
 	{
 		Nodi[i] = 1;
 		molt[i] = '4';
@@ -411,20 +431,21 @@ void costruisci_Nodi(float *t, float *Nodi, char* molt)
 
 	if (mod_molt == 1)
 	{
-		float val_nodo = Nodi[i_nodo];
+
+		float val_nodo = Nodi[indice_nodo];
 		if (molte == 2)
 		{
-			molt[i_nodo] = '2';
+			molt[indice_nodo] = '2';
 		}
 		if (molte == 3)
 		{
-			molt[i_nodo] = '3';
+			molt[indice_nodo] = '3';
 		}
 		if (molte > 1)
 		{
 			for (i = 1; i < molte; i++)
 			{
-				Nodi[i_nodo + i -1] = val_nodo;
+				Nodi[indice_nodo + i -1] = val_nodo;
 			}
 		}
 	}
@@ -433,7 +454,7 @@ void costruisci_Nodi(float *t, float *Nodi, char* molt)
 int localizza_intervallo_internodale(float t, float *Nodi)
 {
 	//Implementazione del metoo di bisezione
-	int a = m - 1;
+	int a = ordineSpline - 1;
 	int b = Punti.size();
 
 	int index;
@@ -467,7 +488,7 @@ void disegnaBaseSpline(float *Nodi, char *molt)
 		int l = localizza_intervallo_internodale(ti, Nodi);
 
 		B[l][k] = 1;
-		for (int i = 0; i < m - 1; i++)
+		for (int i = 0; i < ordineSpline - 1; i++)
 		{
 			float tmp = 0.0;
 			for (int j = l - i; j <= l; j++)
@@ -491,7 +512,7 @@ void disegnaBaseSpline(float *Nodi, char *molt)
 		}
 		glEnd();
 	}
-	for (int j = 0; j < Punti.size() + m; j++)
+	for (int j = 0; j < Punti.size() + ordineSpline; j++)
 	{
 		glColor3f(0.0, 1.0, 0.0);
 		glRasterPos2f(Nodi[j], 0.0);
@@ -501,25 +522,25 @@ void disegnaBaseSpline(float *Nodi, char *molt)
 
 void DeBoor(float *t, float *Nodi)
 {
-	int nvalorit = 1000, i;
+	int nvalorit = 1000;
 	float tstep = 1.0 / (float)(nvalorit - 1);
 
-	GLPOINT2D *c = new GLPOINT2D[m];
+	GLPOINT2D *c = new GLPOINT2D[ordineSpline];
 
 	glBegin(GL_LINE_STRIP);
 	for (float vt = 0; vt <= 1; vt += tstep)
 	{
 		int l = localizza_intervallo_internodale(vt, Nodi);
 		//Implementamo l'algoritmo di DeBoor
-		for (i = 0; i < m; i++)
+		for (int i = 0; i < ordineSpline; i++)
 		{
-			c[i] = Punti.at(i + l - m + 1);
+			c[i] = Punti.at(i + l - ordineSpline + 1);
 		}
-		for (int j = 0; j < m - 1; j++)
+		for (int j = 0; j < ordineSpline - 1; j++)
 		{
-			for (i = m - 1; i > j; i--)
+			for (int i = ordineSpline - 1; i > j; i--)
 			{
-				int ti = l - m + 1 + i;
+				int ti = l - ordineSpline + 1 + i;
 				int timj = l + i - j;
 
 				float den = Nodi[timj] - Nodi[ti];
@@ -529,26 +550,43 @@ void DeBoor(float *t, float *Nodi)
 				c[i].y = c[i].y * dt + (c[i-1].y * (1 - dt));
 			}
 		}
-		glVertex2f(c[m - 1].x, c[m - 1].y);
+		glVertex2f(c[ordineSpline - 1].x, c[ordineSpline - 1].y);
 	}
 	glEnd();
+}
+
+void inizializzaPunti(){
+
+	GLPOINT2D zero = {0.0,0.0};
+
+	Punti.clear();
+	PesiPunti.clear();
+	DerivateMod.clear();
+
+	//inserire punti preimpostati e resettare pesipunti e derivatemod
 }
 
 void scelta_metodi(int scelta){
 
 	switch(scelta){
 	case 1:
-		metodo = 1;
+		metodo = 1; //Hermite
 		glutPostRedisplay();
 		break;
 	
 	case 2:
-		metodo = 2;
+		metodo = 2;	//Bezier
 		glutPostRedisplay();
 		break;
 
 	case 3:
-		metodo = 3;
+		metodo = 3; //Spline
+		glutPostRedisplay();
+		break;
+
+	case 4:
+		metodo = 0;
+		inizializzaPunti();
 		glutPostRedisplay();
 		break;
 	}
@@ -567,21 +605,20 @@ void display(){
 	glLoadIdentity();
 	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
 
-	glColor3f(0.0, 0.0, 0.0); //disegno i punti della
+	glColor3f(0.0, 0.0, 0.0); //disegno i punti inseriti fin'ora
 	glBegin(GL_POINTS);
 	for (int i = 0; i < Punti.size(); i++)
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
 	
 	glColor3f(1.0,0.0,0.0);
-	glBegin(GL_LINE_STRIP);
+	glBegin(GL_LINE_STRIP);	//diseno le linee che collegano i punti
 	for (int i = 0; i < Punti.size(); i++)
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
-	glFlush();
+	//glFlush();
 
 	//Parametrizzazione
-
 	float* t = new float[Punti.size()];
 
 	if (scelta_param == 0){
@@ -634,9 +671,9 @@ void display(){
 			glMatrixMode(GL_MODELVIEW);
 
 		} else if (metodo == 3) {
-			if (Punti.size() >= m) {
-				float *Nodi = new float[Punti.size() + 2 * m];
-				char *molt = new char[Punti.size() + m];
+			if (Punti.size() >= ordineSpline) {
+				float *Nodi = new float[Punti.size() + 2 * ordineSpline];
+				char *molt = new char[Punti.size() + ordineSpline];
 				costruisci_Nodi(t, Nodi, molt);
 				DeBoor(t, Nodi);
 
@@ -663,6 +700,11 @@ void myinit (void)
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
+
+	GLPOINT2D newPoint = {118,352};
+
+	PuntiPrepatati.push_back(newPoint);
+
 }
 
 void createGlui(){
@@ -672,23 +714,21 @@ void createGlui(){
 	radio_opzioni = glui->add_radiogroup_to_panel(pannello_opzioni, &scelta_opzioni);
 	glui->add_radiobutton_to_group(radio_opzioni, "Aggiunta punti");
 	glui->add_radiobutton_to_group(radio_opzioni, "Modifica punti");
+	glui->add_radiobutton_to_group(radio_opzioni, "Modifica pesi punti");
+	glui->add_button_to_panel(pannello_opzioni, "Punti Preimpostati",4,scelta_metodi);
 
-	pannello_param = glui->add_panel("Parametrizzazione", GLUI_PANEL_EMBOSSED);
-	radio_param = glui->add_radiogroup_to_panel(pannello_param, &scelta_param);
-	glui->add_radiobutton_to_group(radio_param, "Uniforme");
-	glui->add_radiobutton_to_group(radio_param, "Corde");
-
+	//Hermite
 	pannello_Hermite = glui->add_panel("Hermite", GLUI_PANEL_EMBOSSED);
-	//quando viene premuto il pulsante, viene eseguita l'opzione 1 del metodo scelta_metodi
-	//1 è il valore che viene passato alla funzione scelta_metodi
 	buttonHermite = glui->add_button_to_panel(pannello_Hermite,"HERMITE",1,scelta_metodi);
+	radio_param = glui->add_radiogroup_to_panel(pannello_Hermite, &scelta_param);
+	glui->add_radiobutton_to_group(radio_param, "Parametrizzazione Uniforme");
+	glui->add_radiobutton_to_group(radio_param, "Parametrizzazione delle Corde");
 
 	//possibilità di modificare le derivate per modificare il comportamento delle nostre curve interpolate
 	glui->add_checkbox_to_panel(pannello_Hermite,"Modifica derivate",&mod_der);
 
+	//Bezier
 	pannello_Bezier = glui->add_panel("Bezier", GLUI_PANEL_EMBOSSED);
-	//quando viene premuto il pulsante, viene eseguita l'opzione 1 del metodo scelta_metodi
-	//1 è il valore che viene passato alla funzione scelta_metodi
 	buttonBezier = glui->add_button_to_panel(pannello_Bezier,"BEZIER",2,scelta_metodi);
 
 	//possibilità di eseguire subdivision
@@ -698,10 +738,13 @@ void createGlui(){
 	spinner_subd = glui->add_spinner_to_panel(pannello_Bezier, "Parametro t per Subdivision", GLUI_SPINNER_FLOAT, &t_subd);
 	spinner_subd -> set_speed(0.3);
 
+	//Spline
 	pannello_Spline = glui->add_panel("Spline", GLUI_PANEL_EMBOSSED);
 	buttonSpline = glui->add_button_to_panel(pannello_Spline,"SPLINE",3,scelta_metodi);
-	glui->add_checkbox_to_panel(pannello_Spline,"Modifica Molt",&mod_molt);
-	spinner_i_nodo = glui -> add_spinner_to_panel(pannello_Spline, "Nodo da modificare", GLUI_SPINNER_INT, &i_nodo);
+
+	//Modifica Molteplicità
+	glui->add_checkbox_to_panel(pannello_Spline,"Modifica Molteplicita'",&mod_molt);
+	spinner_i_nodo = glui -> add_spinner_to_panel(pannello_Spline, "Nodo da modificare", GLUI_SPINNER_INT, &indice_nodo);
 	spinner_i_nodo -> set_speed(0.1);
 	spinner_molte = glui -> add_spinner_to_panel(pannello_Spline, "Molteplicita'", GLUI_SPINNER_INT, &molte);
 	spinner_molte -> set_speed(0.1);
@@ -750,9 +793,6 @@ void main(int argc, char** argv)
 	//per impostare l'icona nella finestra delle opzioni
 	hwnd = FindWindow(NULL, _T("Opzioni") );
 	SendMessage(hwnd, (UINT)WM_SETICON, ICON_BIG, (LPARAM)icon);
-
-
-	
 
 	glutMainLoop();
 }
