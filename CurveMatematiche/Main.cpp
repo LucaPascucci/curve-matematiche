@@ -9,6 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <tchar.h>
+#include <sstream>
 
 //nasconde la console
 #pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
@@ -78,6 +79,14 @@ vector <GLPOINT2D> DerivateMod;
 
 //Punti preparati per controllare se va tutto bene
 vector <GLPOINT2D> PuntiPrepatati;
+
+//converte un intero in stringa
+string int2str(int x) 
+{
+	stringstream ss;
+	ss << x;
+	return ss.str( );
+}
 
 void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 	
@@ -600,7 +609,7 @@ void display(){
 	glClear(GL_COLOR_BUFFER_BIT); //pulisco la finestra secondaria (delle funzioni base)
 
 	glutSetWindow(winIdPrincipale);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT); //pulisco la finestra principale (dei punti)
 	//Definisco il sistema di riferimento per la finestra principale di disegno delle curve
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -608,12 +617,24 @@ void display(){
 
 	glColor3f(0.0, 0.0, 0.0); //disegno i punti inseriti fin'ora
 	glBegin(GL_POINTS);
-	for (int i = 0; i < Punti.size(); i++)
+	for (int i = 0; i < Punti.size(); i++){
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
+	}
 	glEnd();
+
+	//stampo gli indici dei punti
+	for (int i = 0; i < Punti.size(); i++){
+		
+		glRasterPos2f(Punti.at(i).x - 10, Punti.at(i).y + 5);
+		string indice = int2str(i+1);
+		int len = indice.length();
+		for (int l = 0; l < len; l++){
+			glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, indice[l]);
+		}
+	}
 	
 	glColor3f(1.0,0.0,0.0);
-	glBegin(GL_LINE_STRIP);	//diseno le linee che collegano i punti
+	glBegin(GL_LINE_STRIP);	//disegno le linee che collegano i punti
 	for (int i = 0; i < Punti.size(); i++)
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
@@ -697,7 +718,7 @@ void myinit (void)
 	gluOrtho2D(-0.05, 1.05, -0.05, 1.05);
 	glutSetWindow(winIdPrincipale);
 	glClearColor(1.0, 1.0, 1.0, 0.0); //colore dello sfondo finestra principale
-	glPointSize(6.0);
+	glPointSize(5.0);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
