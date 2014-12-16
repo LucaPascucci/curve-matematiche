@@ -11,7 +11,7 @@
 #include <tchar.h>
 
 //nasconde la console
-//#pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
+#pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 
 //definizione funzioni base di Hermite
 #define PHI0(t) (2.0*t*t*t - 3.0*t*t + 1)
@@ -32,7 +32,7 @@ int mod_der = 0; //0: Non modifica derivate, 1: Modifica derivate
 int scelta_opzioni = 0, mod_molt = 0, indice_nodo, molte;
 int ordineSpline = 4; //Ordine spline
 
-float t_subd;
+float t_subd; //valore di subdivision
 int alg_subd = 0; //1: viene applicato l'algoritmo subdivision
 
 GLUI_Panel *pannello_opzioni;
@@ -76,7 +76,7 @@ vector <int> PesiPunti;
 //conserva le coordinate dei punti dove è stata modificata la derivata
 vector <GLPOINT2D> DerivateMod;
 
-//Punti preparati
+//Punti preparati per controllare se va tutto bene
 vector <GLPOINT2D> PuntiPrepatati;
 
 void myMouse(int button, int state, GLint xmouse, GLint ymouse){
@@ -89,8 +89,6 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 	zero.y = 0.0;
 	newPoint.x = xmouse;
 	newPoint.y = altezzaPrincipale - ymouse;
-	cout <<"x:"<< newPoint.x << " y:" << newPoint.y << endl;
-	cout <<"Dimensione vettore punti: " << Punti.size() << endl;
 
 	if (state == GLUT_DOWN){ //se lo stato del bottone è premuto
 		switch(button){
@@ -137,7 +135,7 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 
 				//glFlush();
 				
-				//inserisce il punto ed i dati relativi a quel punto
+				//inserisce il nuovo punto ed i dati relativi a quel punto
 				Punti.push_back(newPoint);
 				PesiPunti.push_back(PESOBASE);
 				DerivateMod.push_back(zero);
@@ -557,13 +555,16 @@ void DeBoor(float *t, float *Nodi)
 
 void inizializzaPunti(){
 
-	GLPOINT2D zero = {0.0,0.0};
-
 	Punti.clear();
 	PesiPunti.clear();
 	DerivateMod.clear();
 
-	//inserire punti preimpostati e resettare pesipunti e derivatemod
+	GLPOINT2D zero = {0.0,0.0};
+	for (int i = 0; i < PuntiPrepatati.size(); i++){
+		Punti.push_back(PuntiPrepatati.at(i));
+		PesiPunti.push_back(PESOBASE);
+		DerivateMod.push_back(zero);
+	}
 }
 
 void scelta_metodi(int scelta){
@@ -702,9 +703,28 @@ void myinit (void)
 	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
 
 	GLPOINT2D newPoint = {118,352};
-
 	PuntiPrepatati.push_back(newPoint);
-
+	newPoint.x = 241;
+	newPoint.y = 544;
+	PuntiPrepatati.push_back(newPoint);
+	newPoint.x = 487;
+	newPoint.y = 543;
+	PuntiPrepatati.push_back(newPoint);
+	newPoint.x = 457;
+	newPoint.y = 342;
+	PuntiPrepatati.push_back(newPoint);
+	newPoint.x = 258;
+	newPoint.y = 231;
+	PuntiPrepatati.push_back(newPoint);
+	newPoint.x = 422;
+	newPoint.y = 143;
+	PuntiPrepatati.push_back(newPoint);
+	newPoint.x = 657;
+	newPoint.y = 231;
+	PuntiPrepatati.push_back(newPoint);
+	newPoint.x = 521;
+	newPoint.y = 285;
+	PuntiPrepatati.push_back(newPoint);
 }
 
 void createGlui(){
