@@ -20,21 +20,21 @@
 #define PSI0(t) (-2.0*t*t*t + 3.0*t*t)
 #define PSI1(t) (t*t*t - t*t)
 
-#define PESOBASE 1
+#define PESOBASE 1.0
 
-int larghezzaPrincipale = 800, altezzaPrincipale = 800;
+int larghezzaPrincipale = 900, altezzaPrincipale = 800;
 int larghezzaSecondaria = 400, altezzaSecondaria = 300;
 int PuntoSelezionato = -1; 
 
 int winIdPrincipale, winIdFunzioniBase; //ID Finestre
 
-int metodo = 0; //1: Hermite; 2: Bezier; 3: curve Spline
-int mod_der = 0; //0: Non modifica derivate, 1: Modifica derivate
-int scelta_opzioni = 0, mod_molt = 0, indice_nodo, molte;
+int metodo_attivo = 0; //1: Hermite; 2: Bezier; 3: curve Spline
+int modifica_derivata = 0; //0: Non modifica derivate, 1: Modifica derivate
+int scelta_opzioni = 0, modifica_molteplicità = 0, indice_nodo, valore_molteplicità;
 int ordineSpline = 4; //Ordine spline
 
-float t_subd; //valore di subdivision
-int alg_subd = 0; //1: viene applicato l'algoritmo subdivision
+float t_subd; //valore di suddivisione
+int alg_subd = 0; //1: viene applicato l'algoritmo subdivision a bezier
 
 GLUI_Panel *pannello_opzioni;
 GLUI_RadioGroup *radio_opzioni;
@@ -60,7 +60,7 @@ GLUI_Button *buttonSpline;
 GLUI_Spinner *spinner_subd;
 
 //spinner molteplicità
-GLUI_Spinner *spinner_i_nodo, *spinner_molte;
+GLUI_Spinner *spinner_i_nodo, *spinner_molteplicità;
 
 using namespace std;
 
@@ -72,7 +72,7 @@ typedef struct glPoint2D{
 vector <GLPOINT2D> Punti;
 
 //contenitore dei pesi dei punti
-vector <int> PesiPunti;
+vector <float> PesiPunti;
 
 //conserva le coordinate dei punti dove è stata modificata la derivata
 vector <GLPOINT2D> DerivateMod;
@@ -106,9 +106,10 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 
 			//scelta_opzioni = 0 --> modalita' inserimento
 			//scelta_opzioni = 1 --> modifica punti inseriti
-			//mod_der = 0 --> se non voglio modificare la derivata sui punti inseriti
-			//mod_der = 1 --> se voglio modificare la derivata sui punti inseriti
-			if(scelta_opzioni == 1 || mod_der == 1){
+			//scelta_opzioni = 2 --> modifica pesi
+			//modifica_derivata = 0 --> se non voglio modificare la derivata sui punti inseriti
+			//modifica_derivata = 1 --> se voglio modificare la derivata sui punti inseriti
+			if(scelta_opzioni == 1 || modifica_derivata == 1 || scelta_opzioni == 2){
 
 				//ho già inserito dei punti, devo "catturare" il punto cliccato
 				//tramite un controllo "ad area" che confronta la zona cliccata
@@ -188,7 +189,17 @@ void mouseMove(GLint xmouse, GLint ymouse){
 		if(scelta_opzioni == 1){
 			//sostituisco il punto selezionato con quello nuovo
 			Punti.at(PuntoSelezionato) = newPoint;
-		} else if (mod_der == 1){
+		}else if(scelta_opzioni == 2){
+			if (newPoint.y > Punti.at(PuntoSelezionato).y){
+				PesiPunti.at(PuntoSelezionato) = newPoint.y - Punti.at(PuntoSelezionato).y;
+			}else if (newPoint.y < Punti.at(PuntoSelezionato).y){
+				if (PesiPunti.at(PuntoSelezionato) - (Punti.at(PuntoSelezionato).y - newPoint.y) < 1){
+					PesiPunti.at(PuntoSelezionato) = PESOBASE;
+				}else{
+					PesiPunti.at(PuntoSelezionato) = Punti.at(PuntoSelezionato).y - newPoint.y;
+				}
+			}
+		} else if (modifica_derivata == 1){
 			//la moltiplicazione per 5 è una regola
 			float derx = (newPoint.x - Punti.at(PuntoSelezionato).x)*5;
 			float dery = (newPoint.y - Punti.at(PuntoSelezionato).y)*5;
@@ -301,7 +312,7 @@ void InterpolazioneHermite(float* t){
 	glEnd();
 }
 
-//algoritmo di subdivision
+//algoritmo di suddivisione
 void Subdivision(){
 	
 	GLPOINT2D *c = new GLPOINT2D[Punti.size()];
@@ -345,15 +356,17 @@ void Bezier(){
 	float tstep = 1.0/(float)(npv - 1);
 
 	GLPOINT2D *c = new GLPOINT2D[Punti.size()];
+	float *w = new float[PesiPunti.size()];
 
 	glBegin(GL_LINE_STRIP);
 	glColor3f(0.0, 0.0, 0.0);
 	for(float ti = 0; ti <= 1; ti += tstep){
 		for(int i = 0; i < Punti.size() ; i++)
 		{
-			c[i] = Punti.at(i);
-			//c[i] = Pesi[i] * Punti.at(i);
-			//w[i] = Pesi[i];
+			//c[i] = Punti.at(i);
+			c[i].x = PesiPunti.at(i) * Punti.at(i).x;
+			c[i].y = PesiPunti.at(i) * Punti.at(i).y;
+			w[i] = PesiPunti.at(i);
 		}
 
 		for(int j = 1; j <= Punti.size(); j++){
@@ -361,12 +374,12 @@ void Bezier(){
 				c[i].x = c[i].x * (1 - ti) + ti * c[i+1].x;
 				c[i].y = c[i].y * (1 - ti) + ti * c[i+1].y;
 				//Pesi[i] = Pesi[i].y * (1 - ti) + ti * Pesi[i+1].y;
-				//w[i] = w[i] * (1 - ti) + ti * w[i+1];
+				w[i] = w[i] * (1 - ti) + ti * w[i+1];
 			}
 		}
-		glVertex2f(c[0].x, c[0].y);
+		//glVertex2f(c[0].x, c[0].y);
 		//glVertex2f(c[0].x / Pesi[0], c[0].y / Pesi[0]);
-		//glVertex2f(c[0].x / w[0], c[0].y / w[0]);
+		glVertex2f(c[0].x / w[0], c[0].y / w[0]);
 	}
 	glEnd();
 
@@ -391,8 +404,8 @@ void disegnaBezier(){
 		for (int i = 1; i < Punti.size(); i++){
 			float d1b = 0;
 			for (int j = 0; j < Punti.size(); j++){
-				B[k][j] = (1-ti)*B[k][j+1]+d1b;
-				d1b = ti*B[k][j+1];
+				B[k][j] = (1-ti) * B[k][j+1] + d1b;
+				d1b = ti * B[k][j+1];
 			}
 			B[k][Punti.size()] = d1b;
 		}
@@ -436,21 +449,21 @@ void costruisci_Nodi(float *t, float *Nodi, char* molt)
 		molt[i] = '4';
 	}
 
-	if (mod_molt == 1)
+	if (modifica_molteplicità == 1)
 	{
 
 		float val_nodo = Nodi[indice_nodo];
-		if (molte == 2)
+		if (valore_molteplicità == 2)
 		{
 			molt[indice_nodo] = '2';
 		}
-		if (molte == 3)
+		if (valore_molteplicità == 3)
 		{
 			molt[indice_nodo] = '3';
 		}
-		if (molte > 1)
+		if (valore_molteplicità > 1)
 		{
-			for (i = 1; i < molte; i++)
+			for (i = 1; i < valore_molteplicità; i++)
 			{
 				Nodi[indice_nodo + i -1] = val_nodo;
 			}
@@ -500,7 +513,7 @@ void disegnaBaseSpline(float *Nodi, char *molt)
 			float tmp = 0.0;
 			for (int j = l - i; j <= l; j++)
 			{
-				float d1 = ti -Nodi[j];
+				float d1 = ti - Nodi[j];
 				float d2 = Nodi[i+j+1] - ti;
 				float beta = B[j][k] / (d1 + d2);
 				B[j-1][k] = d2 * beta + tmp;
@@ -533,6 +546,7 @@ void DeBoor(float *t, float *Nodi)
 	float tstep = 1.0 / (float)(nvalorit - 1);
 
 	GLPOINT2D *c = new GLPOINT2D[ordineSpline];
+	float *w = new float[ordineSpline];
 
 	glBegin(GL_LINE_STRIP);
 	for (float vt = 0; vt <= 1; vt += tstep)
@@ -541,7 +555,10 @@ void DeBoor(float *t, float *Nodi)
 		//Implementamo l'algoritmo di DeBoor
 		for (int i = 0; i < ordineSpline; i++)
 		{
-			c[i] = Punti.at(i + l - ordineSpline + 1);
+			//c[i] = Punti.at(i + l - ordineSpline + 1);
+			c[i].x = Punti.at(i + l - ordineSpline + 1).x * PesiPunti.at(i + l - ordineSpline + 1);
+			c[i].y = Punti.at(i + l - ordineSpline + 1).y * PesiPunti.at(i + l - ordineSpline + 1);
+			w[i] = PesiPunti.at(i + l - ordineSpline + 1);
 		}
 		for (int j = 0; j < ordineSpline - 1; j++)
 		{
@@ -555,9 +572,11 @@ void DeBoor(float *t, float *Nodi)
 				
 				c[i].x = c[i].x * dt + (c[i-1].x * (1 - dt));
 				c[i].y = c[i].y * dt + (c[i-1].y * (1 - dt));
+				w[i] = w[i] * dt + (w[i-1] * (1 - dt));
 			}
 		}
-		glVertex2f(c[ordineSpline - 1].x, c[ordineSpline - 1].y);
+		//glVertex2f(c[ordineSpline - 1].x, c[ordineSpline - 1].y);
+		glVertex2f(c[ordineSpline - 1].x/w[ordineSpline - 1],c[ordineSpline - 1].y / w[ordineSpline - 1]);
 	}
 	glEnd();
 }
@@ -580,22 +599,22 @@ void scelta_metodi(int scelta){
 
 	switch(scelta){
 	case 1:
-		metodo = 1; //Hermite
+		metodo_attivo = 1; //Hermite
 		glutPostRedisplay();
 		break;
 	
 	case 2:
-		metodo = 2;	//Bezier
+		metodo_attivo = 2;	//Bezier
 		glutPostRedisplay();
 		break;
 
 	case 3:
-		metodo = 3; //Spline
+		metodo_attivo = 3; //Spline
 		glutPostRedisplay();
 		break;
 
 	case 4:
-		metodo = 0;
+		metodo_attivo = 0; //nessun metodo attivo
 		inizializzaPunti();
 		glutPostRedisplay();
 		break;
@@ -615,6 +634,8 @@ void display(){
 	glLoadIdentity();
 	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
 
+	spinner_i_nodo -> set_float_limits(1.0,Punti.size());
+
 	glColor3f(0.0, 0.0, 0.0); //disegno i punti inseriti fin'ora
 	glBegin(GL_POINTS);
 	for (int i = 0; i < Punti.size(); i++){
@@ -625,7 +646,7 @@ void display(){
 	//stampo gli indici dei punti
 	for (int i = 0; i < Punti.size(); i++){
 		
-		glRasterPos2f(Punti.at(i).x - 10, Punti.at(i).y + 5);
+		glRasterPos2f(Punti.at(i).x - 15, Punti.at(i).y + 10);
 		string indice = int2str(i+1);
 		int len = indice.length();
 		for (int l = 0; l < len; l++){
@@ -634,10 +655,13 @@ void display(){
 	}
 	
 	glColor3f(1.0,0.0,0.0);
+	glLineStipple(5, 0xAAAA);
+	glEnable(GL_LINE_STIPPLE);
 	glBegin(GL_LINE_STRIP);	//disegno le linee che collegano i punti
 	for (int i = 0; i < Punti.size(); i++)
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
+	glDisable(GL_LINE_STIPPLE);
 	//glFlush();
 
 	//Parametrizzazione
@@ -652,10 +676,10 @@ void display(){
 	if(Punti.size() > 1){
 
 		//curve interpolanti di Hermite
-		if (metodo == 1){
+		if (metodo_attivo == 1){
 			InterpolazioneHermite(t);
 
-			if(PuntoSelezionato >= 0 && mod_der == 1){
+			if(PuntoSelezionato >= 0 && modifica_derivata == 1){
 				//il punto selezionato
 				GLPOINT2D P0 = Punti.at(PuntoSelezionato);
 
@@ -678,8 +702,8 @@ void display(){
 					glVertex2f(P2.x, P2.y);
 				glEnd();
 			}
-		} else if (metodo == 2){
-			
+		} else if (metodo_attivo == 2){
+
 			Bezier();
 			if(alg_subd == 1){
 				Subdivision();
@@ -692,7 +716,7 @@ void display(){
 			disegnaBezier();
 			glMatrixMode(GL_MODELVIEW);
 
-		} else if (metodo == 3) {
+		} else if (metodo_attivo == 3) {
 			if (Punti.size() >= ordineSpline) {
 				float *Nodi = new float[Punti.size() + 2 * ordineSpline];
 				char *molt = new char[Punti.size() + ordineSpline];
@@ -750,13 +774,7 @@ void myinit (void)
 
 void createGlui(){
 
-	GLUI *glui = GLUI_Master.create_glui("Opzioni", GLUI_SUBWINDOW_TOP, 30 + larghezzaPrincipale, 80 + altezzaSecondaria);
-	pannello_opzioni = glui->add_panel("Opzioni", GLUI_PANEL_EMBOSSED);
-	radio_opzioni = glui->add_radiogroup_to_panel(pannello_opzioni, &scelta_opzioni);
-	glui->add_radiobutton_to_group(radio_opzioni, "Aggiunta punti");
-	glui->add_radiobutton_to_group(radio_opzioni, "Modifica punti");
-	glui->add_radiobutton_to_group(radio_opzioni, "Modifica pesi punti");
-	glui->add_button_to_panel(pannello_opzioni, "Punti Preimpostati",4,scelta_metodi);
+	GLUI *glui = GLUI_Master.create_glui_subwindow(winIdPrincipale, GLUI_SUBWINDOW_TOP);
 
 	//Hermite
 	pannello_Hermite = glui->add_panel("Hermite", GLUI_PANEL_EMBOSSED);
@@ -766,31 +784,46 @@ void createGlui(){
 	glui->add_radiobutton_to_group(radio_param, "Parametrizzazione delle Corde");
 
 	//possibilità di modificare le derivate per modificare il comportamento delle nostre curve interpolate
-	glui->add_checkbox_to_panel(pannello_Hermite,"Modifica derivate",&mod_der);
+	glui->add_checkbox_to_panel(pannello_Hermite,"Modifica derivate",&modifica_derivata);
+
+	glui ->add_column(FALSE);
 
 	//Bezier
 	pannello_Bezier = glui->add_panel("Bezier", GLUI_PANEL_EMBOSSED);
 	buttonBezier = glui->add_button_to_panel(pannello_Bezier,"BEZIER",2,scelta_metodi);
 
 	//possibilità di eseguire subdivision
-	glui->add_checkbox_to_panel(pannello_Bezier,"Subdivision",&alg_subd);
+	glui->add_checkbox_to_panel(pannello_Bezier,"Attiva Suddivisione",&alg_subd);
 
 	//valore del parametro t per la quale valutare la subdivision
-	spinner_subd = glui->add_spinner_to_panel(pannello_Bezier, "Parametro t per Subdivision", GLUI_SPINNER_FLOAT, &t_subd);
-	spinner_subd -> set_speed(0.3);
+	spinner_subd = glui->add_spinner_to_panel(pannello_Bezier, "Suddivisione per ", GLUI_SPINNER_FLOAT, &t_subd);
+	spinner_subd -> set_speed(0.2);
+
+	glui ->add_column(FALSE);
 
 	//Spline
 	pannello_Spline = glui->add_panel("Spline", GLUI_PANEL_EMBOSSED);
 	buttonSpline = glui->add_button_to_panel(pannello_Spline,"SPLINE",3,scelta_metodi);
 
 	//Modifica Molteplicità
-	glui->add_checkbox_to_panel(pannello_Spline,"Modifica Molteplicita'",&mod_molt);
+	glui->add_checkbox_to_panel(pannello_Spline,"Modifica Molteplicita'",&modifica_molteplicità);
 	spinner_i_nodo = glui -> add_spinner_to_panel(pannello_Spline, "Nodo da modificare", GLUI_SPINNER_INT, &indice_nodo);
 	spinner_i_nodo -> set_speed(0.1);
-	spinner_molte = glui -> add_spinner_to_panel(pannello_Spline, "Molteplicita'", GLUI_SPINNER_INT, &molte);
-	spinner_molte -> set_speed(0.1);
-
+	spinner_molteplicità = glui -> add_spinner_to_panel(pannello_Spline, "Molteplicita'", GLUI_SPINNER_INT, &valore_molteplicità);
+	spinner_molteplicità -> set_speed(0.1);
+	spinner_molteplicità -> set_int_limits(1,4);
 	glui->set_main_gfx_window(winIdPrincipale);
+
+	glui ->add_column(FALSE);
+
+	//Pannello Opzioni
+	pannello_opzioni = glui->add_panel("Opzioni", GLUI_PANEL_EMBOSSED);
+	radio_opzioni = glui->add_radiogroup_to_panel(pannello_opzioni, &scelta_opzioni);
+	glui->add_radiobutton_to_group(radio_opzioni, "Aggiunta punti");
+	glui->add_radiobutton_to_group(radio_opzioni, "Modifica punti");
+	glui->add_radiobutton_to_group(radio_opzioni, "Modifica pesi");
+	glui->add_button_to_panel(pannello_opzioni, "Punti Preimpostati",4,scelta_metodi);
+
 }
 
 void reshape(GLsizei width, GLsizei height){
