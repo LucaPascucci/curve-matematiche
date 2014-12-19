@@ -547,15 +547,19 @@ void costruisci_Nodi(float *t, float *Nodi, char* molteplicità)
 		{
 			molteplicità[indice_nodo] = '3';
 		}
+		if (valore_molteplicità == 4)
+		{
+			molteplicità[indice_nodo] = '4';
+		}
 		if (valore_molteplicità > 1)
 		{
 			for (i = 1; i < valore_molteplicità; i++)
 			{
-				if (indice_nodo + i -1 == ordineSpline + k){
+				if (indice_nodo + i == ordineSpline + k){
 					break;
 				}else{
-					Nodi[indice_nodo + i -1] = val_nodo;
-					molteplicità[indice_nodo + i -1] = molteplicità[indice_nodo];
+					Nodi[indice_nodo + i] = val_nodo;
+					molteplicità[indice_nodo + i] = molteplicità[indice_nodo];
 				}
 			}
 		}
@@ -943,7 +947,7 @@ void createGlui(){
 	spinner_i_nodo -> set_speed(0.1);
 	spinner_molteplicità = glui -> add_spinner_to_panel(pannello_Spline, "Molteplicita'", GLUI_SPINNER_INT, &valore_molteplicità);
 	spinner_molteplicità -> set_speed(0.1);
-	spinner_molteplicità -> set_int_limits(1,ordineSpline-1);
+	spinner_molteplicità -> set_int_limits(1,ordineSpline);
 	glui->set_main_gfx_window(winIdPrincipale);
 
 	glui ->add_column(FALSE);
