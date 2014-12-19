@@ -12,7 +12,7 @@
 #include <sstream>
 
 //nasconde la console
-#pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
+//#pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 
 //definizione funzioni base di Hermite
 #define PHI0(t) (2.0*t*t*t - 3.0*t*t + 1)
@@ -525,9 +525,19 @@ void costruisci_Nodi(float *t, float *Nodi, char* molteplicità)
 		molteplicità[i] = '4';
 	}
 
-	if (modifica_molteplicità == 1)
-	{
+	for (int i = 0; i < Punti.size() + 2 * ordineSpline; i++){
+		cout << Nodi[i] << " ";
+	}
+	cout << endl;
+	cout << endl;
+	for (int i = 0; i < Punti.size() + ordineSpline; i++){
+		cout << molteplicità[i] << " ";
+	}
+	cout << endl;
+	cout << endl;
 
+	if (modifica_molteplicità == 1 && Punti.size() > 4)
+	{
 		float val_nodo = Nodi[indice_nodo];
 		if (valore_molteplicità == 2)
 		{
@@ -541,7 +551,12 @@ void costruisci_Nodi(float *t, float *Nodi, char* molteplicità)
 		{
 			for (i = 1; i < valore_molteplicità; i++)
 			{
-				Nodi[indice_nodo + i -1] = val_nodo;
+				if (indice_nodo + i -1 == ordineSpline + k){
+					break;
+				}else{
+					Nodi[indice_nodo + i -1] = val_nodo;
+					molteplicità[indice_nodo + i -1] = molteplicità[indice_nodo];
+				}
 			}
 		}
 	}
@@ -631,7 +646,7 @@ void disegnaBaseSpline(float *Nodi, char *molteplicità)
 	glColor3f(0.0, 0.4, 0.0);
 	for (int j = 0; j < Punti.size() + ordineSpline; j++)
 	{
-		glRasterPos2f(Nodi[j], 0.0);
+		glRasterPos2f(Nodi[j]-0.01, -0.05);
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, molteplicità[j]);
 	}
 	
@@ -737,7 +752,11 @@ void display(){
 	glLoadIdentity();
 	gluOrtho2D(0.0,float(larghezzaPrincipale),0.0,float(altezzaPrincipale));
 
-	spinner_i_nodo -> set_float_limits(1.0,Punti.size());
+	if (Punti.size() > ordineSpline){
+		spinner_i_nodo -> set_int_limits(ordineSpline,Punti.size()-1);
+	}else{
+		spinner_i_nodo -> set_int_limits(0,0);
+	}
 
 	glColor3f(0.0, 0.0, 0.0); //disegno i punti inseriti fin'ora
 	glBegin(GL_POINTS);
@@ -765,7 +784,6 @@ void display(){
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	glEnd();
 	glDisable(GL_LINE_STIPPLE);
-	//glFlush();
 
 	//Parametrizzazione
 	float* t = new float[Punti.size()];
