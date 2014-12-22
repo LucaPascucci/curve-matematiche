@@ -121,7 +121,7 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 					//calcoliamo la distanza dal newpoint da tutti i punti inseriti prima e prendo l'indice del punto più vicino
 					distanza = sqrt((Punti.at(0).x - newPoint.x)*(Punti.at(0).x - newPoint.x) + (Punti.at(0).y - newPoint.y)*(Punti.at(0).y - newPoint.y));
 
-					for (int i=1; i<Punti.size(); i++){
+					for (int i = 1; i < Punti.size(); i++){
 						distanza1 = sqrt((Punti.at(i).x - newPoint.x)*(Punti.at(i).x - newPoint.x) + (Punti.at(i).y - newPoint.y)*(Punti.at(i).y - newPoint.y));
 
 						//faccio il controllo sui minimi delle distanze
@@ -179,7 +179,7 @@ void mouseMove(GLint xmouse, GLint ymouse){
 	GLPOINT2D newPoint;
 	newPoint.x = xmouse;
 	newPoint.y = altezza_principale - ymouse;
-
+	
 	if(punto_selezionato >= 0){
 		if(scelta_opzioni == 1){
 			//sostituisco il punto selezionato con quello nuovo
@@ -193,10 +193,9 @@ void mouseMove(GLint xmouse, GLint ymouse){
 				}else{
 					PesiPunti.at(punto_selezionato) = (Punti.at(punto_selezionato).y - newPoint.y) / 15;
 				}
-			}else{
-
 			}
 		} else if (modifica_derivata == 1){
+
 			//la moltiplicazione per 5 è una regola
 			float derx = (newPoint.x - Punti.at(punto_selezionato).x)*5;
 			float dery = (newPoint.y - Punti.at(punto_selezionato).y)*5;
@@ -449,6 +448,7 @@ void funzione_base_Bezier(){
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, titolo[l]);
 	}
 
+	int scelta_colore = 0;
 	int campioni = 300;
 	float ti = 0, dt = 1.0/(campioni - 1);
 	float *sommaPesi = new float[campioni]; 
@@ -484,8 +484,35 @@ void funzione_base_Bezier(){
 	int cont = 0;
 	for (int ibase = 0; ibase < Punti.size(); ibase++){
 
-		glBegin(GL_LINE_STRIP);
+		switch (scelta_colore)
+		{
+		case 0:
+			scelta_colore++;
+			glColor3f(0.0, 1.0, 0.0);
+			break;
+		case 1:
+			scelta_colore++;
+			glColor3f(0.0, 0.5, 1.0);
+			break;
+		case 2:
+			scelta_colore++;
+			glColor3f(1.0, 0.0, 0.5);
+			break;
+		case 3:
+			scelta_colore++;
+			glColor3f(1.0, 0.5, 0.0);
+			break;
+		case 4:
+			scelta_colore++;
+			glColor3f(0.6, 0.0, 0.6);
+			break;
+		case 5:
+			scelta_colore = 0;;
+			glColor3f(0.2, 1.0, 0.6);
+			break;
+		}
 
+		glBegin(GL_LINE_STRIP);
 		for (int l = 0; l < campioni; l++){
 			glVertex2f(dt*(float)l, B[l][ibase+1]*PesiPunti.at(ibase)/sommaPesi[l]);
 		}
@@ -596,6 +623,7 @@ void disegna_base_Spline(float *Nodi, char *molteplicità)
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, titolo[l]);
 	}
 
+	int scelta_colore = 0;
 	int Ncampioni = 300;
 	float ti = 0;
 	float dt = 1.0/(float)(Ncampioni - 1);
@@ -634,9 +662,37 @@ void disegna_base_Spline(float *Nodi, char *molteplicità)
 
 	}
 
-	glColor3f(0.0, 0.0, 1.0);
 	for (int i = 0; i < Punti.size(); i++)
 	{
+		
+		switch (scelta_colore)
+		{
+		case 0:
+			scelta_colore++;
+			glColor3f(0.0, 1.0, 0.0);
+			break;
+		case 1:
+			scelta_colore++;
+			glColor3f(0.0, 0.5, 1.0);
+			break;
+		case 2:
+			scelta_colore++;
+			glColor3f(1.0, 0.0, 0.5);
+			break;
+		case 3:
+			scelta_colore++;
+			glColor3f(1.0, 0.5, 0.0);
+			break;
+		case 4:
+			scelta_colore++;
+			glColor3f(0.6, 0.0, 0.6);
+			break;
+		case 5:
+			scelta_colore = 0;;
+			glColor3f(0.2, 1.0, 0.6);
+			break;
+		}
+
 		ti = 0; 
 		glBegin(GL_LINE_STRIP);
 		for (int k = 0; k < Ncampioni; k++, ti += dt)
@@ -757,16 +813,25 @@ void display(){
 		spinner_i_nodo -> set_int_limits(0,0);
 	}
 
-	glColor3f(0.0, 0.0, 0.0); //disegno i punti inseriti fin'ora
+	//disegno i punti inseriti fin'ora
 	glBegin(GL_POINTS);
 	for (int i = 0; i < Punti.size(); i++){
+		if (punto_selezionato == i){
+			glColor3f(0.0, 0.0, 1.0); 
+		}else{
+			glColor3f(0.0, 0.0, 0.0); 
+		}
 		glVertex2f(Punti.at(i).x, Punti.at(i).y);
 	}
 	glEnd();
 
 	//stampo gli indici dei punti
 	for (int i = 0; i < Punti.size(); i++){
-
+		if (punto_selezionato == i){
+			glColor3f(0.0, 0.0, 1.0); 
+		}else{
+			glColor3f(0.0, 0.0, 0.0); 
+		}
 		glRasterPos2f(Punti.at(i).x - 15, Punti.at(i).y + 10);
 		string indice = int2str(i+1);
 		int len = indice.length();
