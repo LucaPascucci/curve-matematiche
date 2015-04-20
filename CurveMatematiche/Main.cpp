@@ -24,7 +24,7 @@
 
 int larghezza_principale = 900, altezza_principale = 800;
 int larghezza_secondaria = 400, altezza_secondaria = 300;
-int punto_selezionato = -1; 
+int punto_selezionato = -1;
 
 int winIdPrincipale, winIdFunzioniBase; //ID Finestre
 
@@ -88,6 +88,7 @@ string int2str(int x)
 	return ss.str();
 }
 
+//per acquisire l'input del mouse
 void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 
 	int tolleranzaDistanzaClick = 3;
@@ -124,7 +125,7 @@ void myMouse(int button, int state, GLint xmouse, GLint ymouse){
 					for (int i = 1; i < Punti.size(); i++){
 						distanza1 = sqrt((Punti.at(i).x - newPoint.x)*(Punti.at(i).x - newPoint.x) + (Punti.at(i).y - newPoint.y)*(Punti.at(i).y - newPoint.y));
 
-						//faccio il controllo sui minimi delle distanze
+						//faccio il controllo sui minimi delle distanze cioè prendo quello con distanza minore
 						if (distanza1 < distanza){
 							punto_selezionato = i;
 							distanza = distanza1;
@@ -185,11 +186,12 @@ void mouseMove(GLint xmouse, GLint ymouse){
 			//sostituisco il punto selezionato con quello nuovo
 			Punti.at(punto_selezionato) = newPoint;
 		}else if(scelta_opzioni == 2 && (metodo_attivo == 2 || metodo_attivo == 3)){
+			//controllo la coordinata y del punto selezionato e del punto corrente per modificare il peso del punto selezionato
 			if (newPoint.y > Punti.at(punto_selezionato).y){
 				PesiPunti.at(punto_selezionato) = (newPoint.y - Punti.at(punto_selezionato).y) / 15;
 			}else if (newPoint.y < Punti.at(punto_selezionato).y){
 				if (PesiPunti.at(punto_selezionato) - (Punti.at(punto_selezionato).y - newPoint.y) <= 0){
-					PesiPunti.at(punto_selezionato) = PESOBASE-1;
+					PesiPunti.at(punto_selezionato) = PESOBASE - 1;
 				}else{
 					PesiPunti.at(punto_selezionato) = (Punti.at(punto_selezionato).y - newPoint.y) / 15;
 				}
@@ -207,27 +209,32 @@ void mouseMove(GLint xmouse, GLint ymouse){
 	glutPostRedisplay();
 }
 
+//genera t (che punta ad una variabile creata in display)
 void parametrizzazione_uniforme(float* t){
 
 	//definisco il passo della parametrizzazione, dividendo l'ampiezza dell'intervallo
-	//per il numero di punti presenti (l'ampiezza dell'intervallo è sempre 1)
+	//per il numero di punti presenti -1 (l'ampiezza dell'intervallo è sempre 1)
 	float step = 1.0/(float)(Punti.size()-1);
 
+	//moltiplica l'indice per il passo
+	//es. con 5 punti => t[0] = 0, t[1] = 0.25, t[2] = 0.5, t[3] = 0.75, t[4] = 1
 	for (int i = 0; i < Punti.size(); i++){
-		t[i] = i*step;
+		t[i] = i * step;
 	}
 
 }
 
+//genera t (che punta ad una variabile creata in display)
 void parametrizzazione_corde(float* t){
 
 	t[0] = 0;
 
+	//prende il valore t precedente e lo somma alla distanza tra il punto corrente del ciclo e quello precedente (lunghezza del segmento che li unisce)
 	for (int i = 1; i<Punti.size(); i++){
 		t[i] = t[i-1] + sqrt((Punti.at(i).x - Punti.at(i-1).x)*(Punti.at(i).x - Punti.at(i-1).x) + (Punti.at(i).y - Punti.at(i-1).y)*(Punti.at(i).y - Punti.at(i-1).y));
 	}
 
-	//divido per il massimo dell'ultimo componente per riportarlo nel range 0-1
+	//divido per il massimo dell'ultimo componente per riportarlo nel range 0-1 come nella parametrizzazone_uniforme (ma valori diversi)
 	for (int i = 0; i<Punti.size(); i++){
 		t[i] = t[i]/t[Punti.size()-1];
 	}
@@ -237,11 +244,12 @@ void parametrizzazione_corde(float* t){
 //derivate rispetto a t della componente parametrica in x
 //metodo del rapporto incrementale
 float dx(int i, float* t){
+	//i??
 	if (i <= 0){
 		return 0;
 	}
 
-	//altrimenti restituisco la derivata in x
+	//altrimenti restituisco la derivata in x con il metodo del rapporto incrementale
 	return (Punti.at(i).x - Punti.at(i-1).x)/(t[i] - t[i-1]);
 }
 
@@ -252,27 +260,33 @@ float dy(int i, float* t){
 		return 0;
 	}
 
-	//altrimenti restituisco la derivata in x
+	//altrimenti restituisco la derivata in y con il metodo del rapporto incrementale
 	return (Punti.at(i).y - Punti.at(i-1).y)/(t[i] - t[i-1]);
 }
 
+//utilizzato dentro interpolazione_Hermite
 float DX(int i, float *t){
 
+	//non è stata calcolata la derivata del punto i
 	if(DerivateMod.at(i).x == 0){
 		return dx(i, t);
 	}
 
+	//è già stata calcolata la derivata del punto i
 	if(DerivateMod.at(i).x != 0){
 		return DerivateMod.at(i).x;
 	}
 }
 
+//utilizzato dentro interpolazione_Hermite
 float DY(int i, float *t){
 
+	//non è stata calcolata la derivata del punto i
 	if(DerivateMod.at(i).y == 0){
 		return dy(i, t);
 	}
 
+	//è già stata calcolata la derivata del punto i
 	if(DerivateMod.at(i).y != 0){
 		return DerivateMod.at(i).y;
 	}
@@ -281,38 +295,43 @@ float DY(int i, float *t){
 //implementazione interpolazione di Hermite
 void interpolazione_Hermite(float* t){
 
-	//valutiamo la nostra curva su 1000 (mila) valori
+	//valutiamo la nostra curva su 1000 valori
 	//numero di valori del parametro t in cui valutare la curva interpolante di Hermite
 	int nvpt = 1000;
 
-	float passot = 1.0/(float)(nvpt-1);
+	float passot = 1.0/(float)(nvpt-1); //0,001001001001001
 
 	//per ogni valore, devo vedere in quale sottointervallo cade il mio punto di valutazione
 	int is = 0; //Indice del sottointervallo a cui appartiene il valore del parametro in cui valutare la curva
 	glColor3f(0.0,0.4,0.0);
 	glBegin(GL_LINE_STRIP);
+	//1000 valori tra i due estremi che sarebbero i due punti tra i quali viene disegnata
 	for (float ti = 0; ti <= 1; ti += passot){
 
-		if (ti > t[is+1])
+		if (ti > t[is+1]){
 			is++; //is è l'indice dell'intervallo a cui appartiene il valore ti del parametro
+		}
 
 		//mappare il valore ti (appartenente all'intervallo [t[is],t[is+1]) nell'intervallo [0,1]
 		//perchè le funzioni base sono state definite su un intervallo [0,1]
-		float tim;
+		float tim; //tim è la trasformazione affine che apparterrà sempre all'intervallo [0,1]
 		float range = (t[is+1] - t[is]);
-		tim = (ti - t[is])/range;
+		tim = (ti - t[is])/range; 
 
 		GLPOINT2D IH;
-
+		
+		//PHI0, PHI1, PSI0, PSI1 sono le funzioni base di Hermite
 		IH.x = Punti.at(is).x*PHI0(tim) + DX(is,t)*PHI1(tim)*range + Punti.at(is+1).x*PSI0(tim) + DX(is+1,t)*PSI1(tim)*range;
 		IH.y = Punti.at(is).y*PHI0(tim) + DY(is,t)*PHI1(tim)*range + Punti.at(is+1).y*PSI0(tim) + DY(is+1,t)*PSI1(tim)*range;
 
+		//disegna uno dei mille valori interni ai due estremi
 		glVertex2f(IH.x, IH.y);
 	}
 	glEnd();
 }
 
-void funzione_base_Hermite(float *t){
+
+void funzione_base_Hermite(){
 
 	glColor3f(0.0, 0.0, 0.0);
 	glRasterPos2f(0.42, 0.97);
@@ -322,19 +341,19 @@ void funzione_base_Hermite(float *t){
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, titolo[l]);
 	}
 
-	//valutiamo la nostra curva su 1000 (mila) valori
+	//valutiamo la nostra curva su 1000 valori
 	//numero di valori del parametro t in cui valutare la curva interpolante di Hermite
-	int nvpt = 100000;
+	int nvpt = 1000;
 
 	float passot = 1.0/(float)(nvpt-1);
 
+	//4 volte perchè le funzioni base sono 4
 	for (int i = 0; i < 4;i++){
 		glBegin(GL_LINE_STRIP);
 
+		//la coordinata x sarà sempre il valore ti invece la coordinata y sarà calcolata in base alla funzione base (sono 4) presa in considerazione
 		for (float ti = 0; ti <= 1; ti += passot){
-
 			GLPOINT2D IH;
-
 			IH.x = ti;
 
 			if (i==0){
@@ -403,33 +422,37 @@ void Subdivision(){
 //implementazione interpolazione di Bezier
 void Bezier(){
 
+	//valutiamo la nostra curva su 1000 valori
 	int npv = 1000;
 	float tstep = 1.0/(float)(npv - 1);
 
+	//creati due vettori della stessa dimensione dei punti
 	GLPOINT2D *c = new GLPOINT2D[Punti.size()];
 	float *w = new float[PesiPunti.size()];
 
 	glBegin(GL_LINE_STRIP);
 	glColor3f(0.0, 0.0, 0.0);
 	for(float ti = 0; ti <= 1; ti += tstep){
+
+		//inserisce nel vettore c la moltiplicazione tra il peso per le coordinate x e y di tutti i punti
+		//e nel vettore w inserisce solo il peso dei punti
 		for(int i = 0; i < Punti.size() ; i++)
 		{
-			//c[i] = Punti.at(i);
 			c[i].x = PesiPunti.at(i) * Punti.at(i).x;
 			c[i].y = PesiPunti.at(i) * Punti.at(i).y;
 			w[i] = PesiPunti.at(i);
 		}
 
+		//utilizza algoritmo De Casteljau applicato ai punti ed ai pesi
 		for(int j = 1; j <= Punti.size(); j++){
 			for(int i = 0; i < Punti.size() - j ; i++){
 				c[i].x = c[i].x * (1 - ti) + ti * c[i+1].x;
 				c[i].y = c[i].y * (1 - ti) + ti * c[i+1].y;
-				//Pesi[i] = Pesi[i].y * (1 - ti) + ti * Pesi[i+1].y;
 				w[i] = w[i] * (1 - ti) + ti * w[i+1];
 			}
 		}
-		//glVertex2f(c[0].x, c[0].y);
-		//glVertex2f(c[0].x / Pesi[0], c[0].y / Pesi[0]);
+		//disegna solo il primo dei valori che sarà il punto desiderato
+		//la divisione per il peso "riavvicina" le coordinate del punto a quelle iniziali
 		glVertex2f(c[0].x / w[0], c[0].y / w[0]);
 	}
 	glEnd();
@@ -450,14 +473,15 @@ void funzione_base_Bezier(){
 
 	int scelta_colore = 0;
 	int campioni = 300;
-	float ti = 0, dt = 1.0/(campioni - 1);
+	float ti = 0;
+	float passot = 1.0/(campioni - 1);
 	float *sommaPesi = new float[campioni]; 
 
 	//allochiamo la matrice B, nella quale salveremo le nostre funzioni base
 	float **B = new float *[campioni];
 
 	//posizione dove memorizzare la valutazione che corrisponde al valore del parametro t
-	for (int k = 0; k < campioni; k++, ti += dt){
+	for (int k = 0; k < campioni; k++, ti += passot){
 		B[k] = new float[Punti.size()+1]();
 		B[k][Punti.size()] = 1.0; //condizione iniziale
 
@@ -514,7 +538,7 @@ void funzione_base_Bezier(){
 
 		glBegin(GL_LINE_STRIP);
 		for (int l = 0; l < campioni; l++){
-			glVertex2f(dt*(float)l, B[l][ibase+1]*PesiPunti.at(ibase)/sommaPesi[l]);
+			glVertex2f(passot*(float)l, B[l][ibase+1]*PesiPunti.at(ibase)/sommaPesi[l]);
 		}
 		glEnd();
 	}
@@ -807,6 +831,7 @@ void display(){
 	glutSetWindow(winIdPrincipale);
 	glClear(GL_COLOR_BUFFER_BIT); //pulisco la finestra principale (dei punti)
 
+	//modifica il limite dello spinner per la scelta dei nodi
 	if (Punti.size() > ordine_Spline){
 		spinner_i_nodo -> set_int_limits(ordine_Spline,Punti.size()-1);
 	}else{
@@ -890,7 +915,7 @@ void display(){
 			}
 
 			glutSetWindow(winIdFunzioniBase);
-			funzione_base_Hermite(t);
+			funzione_base_Hermite();
 
 		} else if (metodo_attivo == 2){
 
@@ -929,6 +954,7 @@ void myinit (void)
 {
 	glutSetWindow(winIdFunzioniBase);
 	glClearColor(1.0, 1.0, 1.0, 0.0); //colore dello sfondo finestra secondaria
+
 	//Definisco il sistema di riferimento per la finestra secondaria di disegno delle funzioni base
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -966,7 +992,7 @@ void myinit (void)
 	PuntiPrepatati.push_back(newPoint);
 }
 
-void createGlui(){
+void createOptionGlui(){
 
 	GLUI *glui = GLUI_Master.create_glui_subwindow(winIdPrincipale, GLUI_SUBWINDOW_TOP);
 
@@ -1044,7 +1070,7 @@ void main(int argc, char** argv)
 	glutDisplayFunc(display);
 	glutMouseFunc(myMouse);
 	glutMotionFunc(mouseMove);
-	glutReshapeFunc(reshape); //per fare in modo che la finstra principale non venga resizeta
+	glutReshapeFunc(reshape); //per fare in modo che la finstra principale non venga ridimensionata
 
 	glutInitWindowSize(larghezza_secondaria,altezza_secondaria);
 	glutInitWindowPosition(30 + larghezza_principale,1);
@@ -1057,10 +1083,8 @@ void main(int argc, char** argv)
 	hwnd = FindWindow(NULL, _T("Funzioni Base") );
 	SendMessage(hwnd, (UINT)WM_SETICON, ICON_BIG, (LPARAM)icon);
 
-	createGlui();
-	//per impostare l'icona nella finestra delle opzioni
-	hwnd = FindWindow(NULL, _T("Opzioni") );
-	SendMessage(hwnd, (UINT)WM_SETICON, ICON_BIG, (LPARAM)icon);
+	//per creare il pannello delle opzioni nella windows Principale
+	createOptionGlui();
 
 	glutMainLoop();
 }
