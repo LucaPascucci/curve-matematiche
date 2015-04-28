@@ -53,6 +53,7 @@ GLUI_Panel *pannello_Bezier;
 GLUI_Button *buttonBezier;
 
 //pannello per esecuzione Spline
+int scelta_parametrizzazione_spline = 0;
 GLUI_Panel *pannello_Spline;
 GLUI_Button *bottone_Spline;
 
@@ -452,7 +453,7 @@ void Bezier(){
 			}
 		}
 		//disegna solo il primo dei valori che sarà il punto desiderato
-		//la divisione per il peso "riavvicina" le coordinate del punto a quelle iniziali
+		//per avere la curva in 2D è necessario dividere per la terza componente (peso) perchè quando il peso è maggiore di 1 abbiamo una curva razionale (3D)
 		glVertex2f(c[0].x / w[0], c[0].y / w[0]);
 	}
 	glEnd();
@@ -461,6 +462,7 @@ void Bezier(){
 	delete(w);
 }
 
+//resta da capire cosa sia distanza 1 beta (d1b)
 void funzione_base_Bezier(){
 
 	glColor3f(0.0, 0.0, 0.0);
@@ -503,7 +505,7 @@ void funzione_base_Bezier(){
 
 	}
 
-	//disegnamo le funzioni base, che sono le colonne di questa matrice B
+	//disegnamo le funzioni base, che sono le colonne della matrice B
 	glColor3f(1.0, 0.0, 0.0);
 	int cont = 0;
 	for (int ibase = 0; ibase < Punti.size(); ibase++){
@@ -547,6 +549,7 @@ void funzione_base_Bezier(){
 	delete(B);
 }
 
+//Utilizzata per creare la partizione nodale estesa
 void costruisci_nodi(float *t, float *Nodi, char* molteplicità)
 {
 	int i, cont;
@@ -574,17 +577,6 @@ void costruisci_nodi(float *t, float *Nodi, char* molteplicità)
 		Nodi[i] = 1;
 		molteplicità[i] = '4';
 	}
-
-	for (int i = 0; i < Punti.size() + 2 * ordine_Spline; i++){
-		cout << Nodi[i] << " ";
-	}
-	cout << endl;
-	cout << endl;
-	for (int i = 0; i < Punti.size() + ordine_Spline; i++){
-		cout << molteplicità[i] << " ";
-	}
-	cout << endl;
-	cout << endl;
 
 	if (modifica_molteplicità == 1 && Punti.size() > 4)
 	{
@@ -615,6 +607,7 @@ void costruisci_nodi(float *t, float *Nodi, char* molteplicità)
 		}
 	}
 }
+
 
 int localizza_intervallo_internodale(float t, float *Nodi)
 {
@@ -737,6 +730,7 @@ void disegna_base_Spline(float *Nodi, char *molteplicità)
 	delete(B);
 }
 
+//Utilizzata per disegnare la spline
 void DeBoor(float *t, float *Nodi)
 {
 	int nvalorit = 1000;
@@ -750,10 +744,10 @@ void DeBoor(float *t, float *Nodi)
 	for (float vt = 0; vt <= 1; vt += tstep)
 	{
 		int l = localizza_intervallo_internodale(vt, Nodi);
+
 		//Implementamo l'algoritmo di DeBoor
 		for (int i = 0; i < ordine_Spline; i++)
 		{
-			//c[i] = Punti.at(i + l - ordine_Spline + 1);
 			c[i].x = Punti.at(i + l - ordine_Spline + 1).x * PesiPunti.at(i + l - ordine_Spline + 1);
 			c[i].y = Punti.at(i + l - ordine_Spline + 1).y * PesiPunti.at(i + l - ordine_Spline + 1);
 			w[i] = PesiPunti.at(i + l - ordine_Spline + 1);
@@ -773,7 +767,6 @@ void DeBoor(float *t, float *Nodi)
 				w[i] = w[i] * dt + (w[i-1] * (1 - dt));
 			}
 		}
-		//glVertex2f(c[ordine_Spline - 1].x, c[ordine_Spline - 1].y);
 		glVertex2f(c[ordine_Spline - 1].x/w[ordine_Spline - 1],c[ordine_Spline - 1].y / w[ordine_Spline - 1]);
 	}
 	glEnd();
@@ -782,6 +775,7 @@ void DeBoor(float *t, float *Nodi)
 	delete(c);
 }
 
+//posiziona punti preparati
 void inizializza_punti(){
 
 	Punti.clear();
@@ -874,7 +868,7 @@ void display(){
 	glEnd();
 	glDisable(GL_LINE_STIPPLE);
 
-	//Parametrizzazione
+	//Parametrizzazione per 
 	float* t = new float[Punti.size()];
 
 	if (scelta_parametrizzazione == 0){
@@ -931,12 +925,19 @@ void display(){
 
 				float *Nodi = new float[Punti.size() + 2 * ordine_Spline];
 				char *molt = new char[Punti.size() + ordine_Spline];
-				costruisci_nodi(t, Nodi, molt);
-				DeBoor(t, Nodi);
+				float* t_spline = new float[Punti.size()];
+				if (scelta_parametrizzazione_spline == 0){
+					parametrizzazione_uniforme(t_spline);
+				}else{
+					parametrizzazione_corde(t_spline);
+				}
+				costruisci_nodi(t_spline, Nodi, molt);
+				DeBoor(t_spline, Nodi);
 
 				glutSetWindow(winIdFunzioniBase);
 				disegna_base_Spline(Nodi, molt);
 
+				delete(t_spline);
 				delete(Nodi);
 				delete(molt);
 			}
@@ -1024,6 +1025,10 @@ void createOptionGlui(){
 	//Spline
 	pannello_Spline = glui->add_panel("Spline", GLUI_PANEL_EMBOSSED);
 	bottone_Spline = glui->add_button_to_panel(pannello_Spline,"SPLINE",3,scelta_metodi);
+
+	radio_parametrizzazione = glui->add_radiogroup_to_panel(pannello_Spline, &scelta_parametrizzazione_spline);
+	glui->add_radiobutton_to_group(radio_parametrizzazione, "Parametrizzazione Uniforme");
+	glui->add_radiobutton_to_group(radio_parametrizzazione, "Parametrizzazione delle Corde");
 
 	//Modifica Molteplicità
 	glui->add_checkbox_to_panel(pannello_Spline,"Modifica Molteplicita'",&modifica_molteplicità);
