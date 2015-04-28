@@ -2,6 +2,8 @@
 
 Parametric curve simulator. It has been written using openGL libraries.
 
+![Curve.PNG](https://bitbucket.org/repo/be6akE/images/3879676601-Curve.PNG)
+
 **Details**
 
 Computer Science and Engineering University of Bologna, Cesena Campus
