@@ -444,7 +444,7 @@ void Bezier(){
 			w[i] = PesiPunti.at(i);
 		}
 
-		//utilizza algoritmo De Casteljau applicato ai punti ed ai pesi
+		//utilizza algoritmo De Casteljau applicato sui punti con relativi pesi
 		for(int j = 1; j <= Punti.size(); j++){
 			for(int i = 0; i < Punti.size() - j ; i++){
 				c[i].x = c[i].x * (1 - ti) + ti * c[i+1].x;

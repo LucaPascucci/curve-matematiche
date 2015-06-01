@@ -1,4 +1,4 @@
-﻿Compilazione avviata 24/04/2015 12:34:52.
+﻿Compilazione avviata 08/05/2015 11:09:08.
      1>Progetto "C:\Users\Pascu\documents\visual studio 2012\Projects\CurveMatematiche\CurveMatematiche\CurveMatematiche.vcxproj" sul nodo 2 (destinazioni: Build).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc110.pdb" /Gd /TP /analyze- /errorReport:prompt Main.cpp
@@ -63,4 +63,4 @@
 
 Compilazione completata.
 
-Tempo trascorso 00:00:01.62
+Tempo trascorso 00:00:06.62
